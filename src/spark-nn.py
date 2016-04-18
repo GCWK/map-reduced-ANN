@@ -1,10 +1,11 @@
+from __future__ import print_function
+
 import copy
 import math
 import random
 import numpy as np
 import matplotlib.pyplot as plt
-from sklearn.preprocessing import scale
-from sklearn.preprocessing import normalize
+from sklearn.preprocessing import scale, normalize
 
 class ImportData:
     """
@@ -12,6 +13,22 @@ class ImportData:
     Imput: the list of possible labels
     Return: (X, y)
     """
+
+    def change_y_shape(self, y):
+        return np.array([np.argmax(x) for x in y]).reshape((len(y), 1)).astype(np.int)
+
+    def digitsImport(self, filename):
+        """
+        Split with ' '
+        Attribute a class in function of the column with 1
+        Divise features by n
+        """
+        f = open(filename, 'r')
+        M = np.array([line.strip().split(' ') for line in f])
+        X = M[:,0:-10].astype(np.float)
+        y = M[:,-10:].astype(np.int)
+        return (X, y)
+
     def irisImport(self, filename, n):
         """
         Split with ','
@@ -29,21 +46,6 @@ class ImportData:
         for i in range(len(y)):
             new_y[i, y[i]] = 1
         return (X, new_y.astype(np.float))
-
-    def change_y_shape(self, y):
-        return np.array([np.argmax(x) for x in y]).reshape((len(y), 1)).astype(np.int)
-
-    def digitsImport(self, filename):
-        """
-        Split with ' '
-        Attribute a class in function of the column with 1
-        Divise features by n
-        """
-        f = open(filename, 'r')
-        M = np.array([line.strip().split(' ') for line in f])
-        X = M[:,0:-10].astype(np.float)
-        y = M[:,-10:].astype(np.int)
-        return (X, y)
 
 
 class NeuralNetwork:
@@ -190,35 +192,20 @@ def evaluatePerformance(confusion_matrix, num_classes):
 
 ## Parameters exploration
 ##########################
-#
-#data_import = ImportData()
-#iris_data_x, iris_data_y = data_import.irisImport("data/iris.data", 1.0)
-#
-#for number_h_layer in [1, 2, 3, 4, 6, 8, 10, 15]:
-#    for l_rate in [0.05, 0.1, 0.2, 0.4, 0.5, 0.6]:
-#        confusion_matrices = []
-#        print "hidden_nb:", number_h_layer
-#        print "learning_rate:", l_rate
-#        for fold in kFold(iris_data_x.shape[0], 5):
-#            NN = NeuralNetwork(4, number_h_layer, momentum=0.3, num_iter=50, learning_rate=l_rate)
-#            NN.train(iris_data_x[fold[0]], iris_data_y[fold[0]])
-#            predictions = np.array([np.argmax(NN.predict(np.array([x]))) for x in iris_data_x[fold[1]]]).reshape((len(fold[1]), 1))
-#            confusion_matrices.append(getConfusionMatrix(data_import.change_y_shape(iris_data_y[fold[1]]), predictions, 3))
-#        evaluatePerformance(sum(confusion_matrices), 3)
-#
 
 data_import = ImportData()
-iris_data_x, iris_data_y = data_import.irisImport("data/iris.data", 10.0)
-
-hidden_nb = 10
-learning_rate = 0.01
+digits_data_x, digits_data_y = data_import.digitImport("data/digits.data", 1.0)
 
 confusion_matrices = []
-print "hidden_nb:", hidden_nb
-print "learning_rate:", learning_rate
-for fold in kFold(iris_data_x.shape[0], 5):
-    NN = NeuralNetwork(4, hidden_nb, momentum=0.3, num_iter=100, learning_rate=learning_rate)
-    NN.train(iris_data_x[fold[0]], iris_data_y[fold[0]])
-    predictions = np.array([np.argmax(NN.predict(np.array([x]))) for x in iris_data_x[fold[1]]]).reshape((len(fold[1]), 1))
-    confusion_matrices.append(getConfusionMatrix(data_import.change_y_shape(iris_data_y[fold[1]]), predictions, 3))
-evaluatePerformance(sum(confusion_matrices), 3)
+
+for number_h_layer in [1, 2, 3, 4, 6, 8, 10, 15]:
+    for l_rate in [0.05, 0.1, 0.2, 0.4, 0.5, 0.6]:
+        confusion_matrices = []
+        print "hidden_nb:", number_h_layer
+        print "learning_rate:", l_rate
+        for fold in kFold(iris_data_x.shape[0], 5):
+            NN = NeuralNetwork(4, number_h_layer, momentum=0.3, num_iter=50, learning_rate=l_rate)
+            NN.train(iris_data_x[fold[0]], iris_data_y[fold[0]])
+            predictions = np.array([np.argmax(NN.predict(np.array([x]))) for x in iris_data_x[fold[1]]]).reshape((len(fold[1]), 1))
+            confusion_matrices.append(getConfusionMatrix(data_import.change_y_shape(iris_data_y[fold[1]]), predictions, 3))
+        evaluatePerformance(sum(confusion_matrices), 3)
