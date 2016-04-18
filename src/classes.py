@@ -1,12 +1,12 @@
-import copy
 import math
 import random
 import numpy as np
 import matplotlib.pyplot as plt
 from sklearn.preprocessing import scale
 from sklearn.preprocessing import normalize
+import sys
 
-class ImportData:
+class ImportData(object):
     """
     Import datasets with different formats
     Imput: the list of possible labels
@@ -23,7 +23,7 @@ class ImportData:
         """
         f = open(filename, 'r')
         M = np.array([line.strip().split(' ') for line in f])
-        X = M[:,0:-10].astype(np.float)
+        X = scale(M[:,0:-10].astype(np.float))
         y = M[:,-10:].astype(np.int)
         return (X, y)
 
@@ -45,8 +45,11 @@ class ImportData:
             new_y[i, y[i]] = 1
         return (X, new_y.astype(np.float))
 
+    def sparkImport(self, s, n):
+        return
 
-class NeuralNetwork:
+
+class NeuralNetwork(object):
     def __init__(self, num_input, num_hidden, num_output=10, learning_rate=1, momentum=1.0, num_iter=100):
         """ Initialize the NeuralNetwork class with parameters """
         self.input_nb = num_input
@@ -79,7 +82,7 @@ class NeuralNetwork:
 
     def propagation(self, X):
         """ Compute all coefficients for each layer, until the output """
-        self.activation_input = copy.copy(X)
+        self.activation_input = X
 
         for j in range(self.hidden_nb):
             total = np.sum([self.activation_input[i] * self.wi[i][j] for i in range(self.input_nb)])
@@ -111,6 +114,12 @@ class NeuralNetwork:
                 self.propagation(X[index])
                 self.back_propagation(y[index])
 
+    def train_unique(self, X):
+        for i in range(self.num_iter):
+            self.propagation(X[:-3])
+            self.back_propagation(X[-3:])
+        return 0
+
     def back_propagation(self, y):
         """ Update values by backpropagation, use errors """
         (output_error, hidden_errors) = self.compute_errors(y)
@@ -131,10 +140,10 @@ class NeuralNetwork:
 
     def debug(self):
         """ Print class variables for debug purposes """
-        print "\n[DEBUG] information"
+        print "[DEBUG] information"
         print "input_nb:", self.input_nb
         print "hidden_nb:", self.hidden_nb
-        print "output_nb:",self.output_nb
+        print "output_nb:", self.output_nb
         print "learning_rate:", self.learning_rate
         print "momentum:", self.momentum
         print "activation_input:", self.activation_input
@@ -142,92 +151,3 @@ class NeuralNetwork:
         print "activation_output:", self.activation_output
         print "wi:", self.wi
         print "vi:", self.vi
-
-
-def kFold(size, folds=10):
-    """ Return indices for kfolds """
-    for i in xrange(folds):
-        test_indexes = np.array([j for j in range(size) if j % folds == i])
-        train_indexes = np.array([j for j in range(size) if j % folds != i])
-        yield (train_indexes, test_indexes)
-
-def getConfusionMatrix(y, y_hat, num_classes):
-    """ take two column class vectors and print its confusion matrix """
-    assert(y.shape[0] == y_hat.shape[0] and y.shape[1] == y_hat.shape[1])
-    confusion_matrix = np.zeros((num_classes, num_classes))
-    for i in range(y.shape[0]):
-        confusion_matrix[y[i], y_hat[i]] += 1
-    return confusion_matrix
-
-def evaluatePerformance(confusion_matrix, num_classes):
-    """ Return the confusion matrix, accuracy, precision, recall and F-measure """
-    total = sum([sum(x) for x in confusion_matrix])
-    accuracy = float(np.trace(confusion_matrix)) / float(total)
-    precision = []
-    recall = []
-    f_measure = []
-    for i in range(num_classes):
-        precision.append(float(confusion_matrix[i, i]) / float(sum(confusion_matrix[i, :])))
-        try:
-            recall.append(float(confusion_matrix[i, i]) / float(sum(confusion_matrix[:, i])))
-        except:
-            recall.append(0.0)
-        try:
-            f_measure.append(float(2*precision[-1]*recall[-1])/float(precision[-1]+recall[-1]))
-        except:
-            f_measure.append(0.0)
-
-    print "Confusion matrix:\n", confusion_matrix
-    print "Accuracy:\n", np.around(accuracy, decimals=3)
-    print "Precision:\n", np.around(precision, decimals=3)
-    print "Recall:\n", np.around(recall, decimals=3)
-    print "F-measure:\n", np.around(f_measure, decimals=3)
-    print "\n"
-
-    plt.matshow(normalize(confusion_matrix.astype(np.float), norm='l1', axis=0))
-    plt.colorbar()
-    plt.show()
-
-## Parameters exploration
-##########################
-
-#data_import = ImportData()
-#iris_data_x, iris_data_y = data_import.irisImport("data/iris.data", 1.0)
-
-#input_nb = 4
-#hidden_nb = 5
-#learning_rate = 1.0
-#output_nb = 3
-#
-#confusion_matrices = []
-#print "input_nb:", input_nb
-#print "hidden_nb:", hidden_nb
-#print "output_nb:", output_nb
-#print "learning_rate:", learning_rate
-#for fold in kFold(iris_data_x.shape[0], 5):
-#    NN = NeuralNetwork(input_nb, hidden_nb, num_output=output_nb, momentum=0.3, num_iter=50, learning_rate=learning_rate)
-#    NN.train(iris_data_x[fold[0]], iris_data_y[fold[0]])
-#    predictions = np.array([np.argmax(NN.predict(np.array([x]))) for x in iris_data_x[fold[1]]]).reshape((len(fold[1]), 1))
-#    confusion_matrices.append(getConfusionMatrix(data_import.change_y_shape(iris_data_y[fold[1]]), predictions, 3))
-#evaluatePerformance(sum(confusion_matrices), 3)
-
-
-data_import = ImportData()
-digits_data_x, digits_data_y = data_import.digitsImport("data/semeion.data")
-
-input_nb = 256
-hidden_nb = 512
-learning_rate = 1
-output_nb = 10
-
-confusion_matrices = []
-print "input_nb:", input_nb
-print "hidden_nb:", hidden_nb
-print "output_nb:", output_nb
-print "learning_rate:", learning_rate
-for fold in kFold(digits_data_x.shape[0], 3):
-    NN = NeuralNetwork(input_nb, hidden_nb, num_output=output_nb, momentum=1.0, num_iter=1000, learning_rate=learning_rate)
-    #.train(digits_data_x[fold[0]], digits_data_y[fold[0]])
-    predictions = np.array([np.argmax(NN.predict(np.array([x]))) for x in digits_data_x[fold[1]]]).reshape((len(fold[1]), 1))
-    confusion_matrices.append(getConfusionMatrix(data_import.change_y_shape(digits_data_y[fold[1]]), predictions, 10))
-evaluatePerformance(sum(confusion_matrices), 10)
