@@ -49,33 +49,53 @@ def evaluatePerformance(confusion_matrix, num_classes):
 
 
 if __name__ == "__main__":
+    # Initialize Spark Instance
     sc = SparkContext(appName = "BPNN")
+    np.random.seed(seed = 1)
+    workers_nb = 4
 
+    # Import classes and data
     data_import = classes.ImportData()
     iris_data_x, iris_data_y = data_import.irisImport(sys.argv[1], 1.0)
 
+    # Set parameters
+    iterations = 3000
     input_nb = 4
-    hidden_nb = 5
+    hidden_nb = 6
     learning_rate = 1.0
     output_nb = 3
 
-    NN = sc.broadcast(classes.NeuralNetwork(input_nb, hidden_nb, num_output=output_nb, momentum=0.3, num_iter=50, learning_rate=learning_rate))
+    NN = sc.broadcast(classes.NeuralNetwork(input_nb, hidden_nb, num_output=output_nb, momentum=0.5, num_iter=iterations, learning_rate=learning_rate))
+    test_data = sc.broadcast(iris_data_x)
 
-    iris_data_xy = np.concatenate((iris_data_x, iris_data_y), axis=1)
-    data_x, data_y = sc.parallelize(iris_data_x), sc.parallelize(iris_data_y)
-    data_xy = sc.parallelize(iris_data_xy)
+    iris_data_xy = np.random.permutation(np.concatenate((iris_data_x, iris_data_y), axis=1))
+    data_x, data_y = sc.parallelize(iris_data_x, workers_nb), sc.parallelize(iris_data_y, workers_nb)
+    data_xy = sc.parallelize(iris_data_xy, workers_nb)
 
     data_train = data_xy.map(lambda x: NN.value.train_unique(x))
-    data_predicted = data_x.map(lambda x: np.argmax(NN.value.predict(np.array([x]))))
-    data_results = data_xy.map(lambda x: np.concatenate((np.argmax(NN.value.predict(np.array([x[:-3]]))), np.argmax(x[-3:])), axis=1))
+    print "Count:", data_train.count()
 
-    for x in data_train.collect():
-        print x
+    data_test1 = sc.parallelize(iris_data_x, 1).zipWithIndex().map(lambda (k, v): (v, k))
+    data_test2 = sc.parallelize(iris_data_x, 1).zipWithIndex().map(lambda (k, v): (v, k))
+    data_test3 = sc.parallelize(iris_data_x, 1).zipWithIndex().map(lambda (k, v): (v, k))
+    data_test4 = sc.parallelize(iris_data_x, 1).zipWithIndex().map(lambda (k, v): (v, k))
+    data_predicted1 = data_test1.map(lambda x: np.argmax(NN.value.predict(np.array([x[1]])))).zipWithIndex()
+    data_predicted2 = data_test2.map(lambda x: np.argmax(NN.value.predict(np.array([x[1]])))).zipWithIndex()
+    data_predicted3 = data_test3.map(lambda x: np.argmax(NN.value.predict(np.array([x[1]])))).zipWithIndex()
+    data_predicted4 = data_test4.map(lambda x: np.argmax(NN.value.predict(np.array([x[1]])))).zipWithIndex()
 
-    NN.value.debug()
+    nn_vote = data_predicted1.union(data_predicted2.union(data_predicted3.union(data_predicted4))) \
+                          .map(lambda (k, v): (v, k)) \
+                          .mapValues(lambda x: {x}) \
+                          .reduceByKey(lambda s1, s2: np.bincount(np.array(np.append(list(s1),list(s2)))))
 
-    results = np.array([x for x in data_predicted.collect()]).reshape((iris_data_x.shape[0], 1))
+    for i in nn_vote.collect():
+        print i
 
+    for i in nn_vote.mapValues(lambda x: x.argmax()).sortByKey().collect():
+        print i
+
+    results = np.array([x[1] for x in nn_vote.mapValues(lambda x: x.argmax()).sortByKey().collect()]).reshape((iris_data_x.shape[0], 1))
 
     confusion_matrices = []
     confusion_matrices.append(getConfusionMatrix(data_import.change_y_shape(iris_data_y), results, 3))
