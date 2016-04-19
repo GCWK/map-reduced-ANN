@@ -45,8 +45,24 @@ class ImportData(object):
             new_y[i, y[i]] = 1
         return (X, new_y.astype(np.float))
 
-    def sparkImport(self, s, n):
-        return
+    def breastCancerImport(self, filename, n):
+        """
+        Split with ','
+        Remove lines with '?' in values
+        Do not use the id in first column
+        Scale all features (N(0,1))
+        Divise features by n
+        """
+        f = open(filename, 'r')
+        M = np.array([line.strip().split(',') for line in f if ('?' not in line)])
+        X = M[:,1:-1].astype(np.float)
+        divisor = np.empty(X.shape)
+        divisor.fill(float(n))
+        X = scale(np.divide(X, divisor))
+        y = []
+        for i in M[:,-1].astype(int):
+            y.append([1, 0] if i==2 else [0, 1])
+        return (X, np.array(y).reshape(len(y), 2))
 
 
 class NeuralNetwork(object):
@@ -114,10 +130,10 @@ class NeuralNetwork(object):
                 self.propagation(X[index])
                 self.back_propagation(y[index])
 
-    def train_unique(self, X):
+    def train_unique(self, X, nb_class=3):
         for i in range(self.num_iter):
-            self.propagation(X[:-3])
-            self.back_propagation(X[-3:])
+            self.propagation(X[:-nb_class])
+            self.back_propagation(X[-nb_class:])
         return 0
 
     def back_propagation(self, y):
